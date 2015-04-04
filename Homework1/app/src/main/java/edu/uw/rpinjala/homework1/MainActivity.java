@@ -8,15 +8,26 @@ import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.SurfaceView;
+import android.widget.TextView;
 
 public class MainActivity extends ActionBarActivity {
     private MySensorListener _listener;
+
+    private long _updates;
+    private TextView _stepCount;
+    private SurfaceView _plot;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         _listener = new MySensorListener(this, (SensorManager)getSystemService(SENSOR_SERVICE));
+
+        _updates = 0;
+        _stepCount = (TextView)findViewById(R.id.stepCount);
+        _plot = (SurfaceView)findViewById(R.id.plot);
     }
 
 
@@ -42,7 +53,10 @@ public class MainActivity extends ActionBarActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public void plotSensorData(double d) {
+    public void plotSensorData(double d, long timestamp) {
+        _updates++;
+        _stepCount.setText(Long.toString(_updates));
+
 
     }
 }

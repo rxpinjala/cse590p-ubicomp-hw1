@@ -34,7 +34,7 @@ public class MySensorListener implements SensorEventListener
     @Override
     public void onSensorChanged(SensorEvent event) {
         double d = computeMagnitude(event.values);
-        _mainActivity.plotSensorData(d);
+        _mainActivity.plotSensorData(d, event.timestamp);
     }
 
     @Override
