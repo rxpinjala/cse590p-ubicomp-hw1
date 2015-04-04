@@ -7,8 +7,8 @@
 
     <TextView android:text="@string/steps" android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="40dp"
-        android:id="@+id/" />
+        android:textSize="40sp"
+        android:id="@+id/steps" />
 
     <TextView
         android:layout_width="fill_parent"
@@ -16,8 +16,14 @@
         android:text="0"
         android:id="@+id/stepCount"
         android:layout_alignParentTop="true"
-        android:layout_toRightOf="@+id/"
-        android:layout_toEndOf="@+id/"
-        android:textSize="40dp" />
+        android:textSize="40sp"
+        android:layout_toRightOf="@+id/steps"
+        android:layout_toEndOf="@+id/steps" />
+
+    <Space
+        android:layout_width="fill_parent"
+        android:layout_height="100px"
+        android:layout_below="@+id/steps"
+        android:layout_centerHorizontal="true" />
 
 </RelativeLayout>

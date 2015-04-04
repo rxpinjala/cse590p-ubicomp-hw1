@@ -1,17 +1,22 @@
 package edu.uw.rpinjala.homework1;
 
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
-
 public class MainActivity extends ActionBarActivity {
+    private MySensorListener _listener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        _listener = new MySensorListener(this, (SensorManager)getSystemService(SENSOR_SERVICE));
     }
 
 
@@ -35,5 +40,9 @@ public class MainActivity extends ActionBarActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    public void plotSensorData(double d) {
+
     }
 }
