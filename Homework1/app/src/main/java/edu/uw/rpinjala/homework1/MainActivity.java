@@ -13,9 +13,12 @@ import android.widget.TextView;
 public class MainActivity extends ActionBarActivity {
     private MySensorListener _listener;
 
+    private long _steps;
+    private long _lastStepTimestamp;
     private long _updates;
     private long _initialTS;
     private TextView _stepCount;
+    private TextView _updateCount;
     private TextView _dbgText;
     private SurfaceView _plot;
     private TimeSeriesCircularBuffer _sensorData;
@@ -30,11 +33,14 @@ public class MainActivity extends ActionBarActivity {
 
         _listener = new MySensorListener(this, (SensorManager)getSystemService(SENSOR_SERVICE));
 
+        _steps = 0;
+        _lastStepTimestamp = 0;
         _updates = 0;
         _initialTS = 0;
         _sensorData = new TimeSeriesCircularBuffer(200);
 
         _stepCount = (TextView)findViewById(R.id.stepCount);
+        _updateCount = (TextView)findViewById(R.id.updateCount);
         _dbgText = (TextView)findViewById(R.id.dbgText);
         _plot = (SurfaceView)findViewById(R.id.plot);
 
@@ -93,8 +99,10 @@ public class MainActivity extends ActionBarActivity {
             _initialTS = timestamp;
 
         _sensorData.add(timestamp, d);
+        checkForStep();
 
-        _stepCount.setText(Long.toString(_updates));
+        _stepCount.setText(Long.toString(_steps));
+        _updateCount.setText(Long.toString(_updates));
         _dbgText.setText(Double.toString(d));
     }
 
@@ -138,5 +146,43 @@ public class MainActivity extends ActionBarActivity {
         c.drawLine(x, 0, x, c.getHeight(), _paintGreenLine);
 
         sh.unlockCanvasAndPost(c);
+    }
+
+    private static final long _minStepIntervalNS = 300 * 1000 * 1000; // 200 msec
+    private static final long _stepComparisonIntervalNS = 2 * 1000 * 1000 * 1000;
+    private static final double _stepDetectionThreshold = 1.1; // 10% more than the mean over the interval
+
+    // Records a step, if it's been long enough since the last one (to avoid jitter)
+    private void tryRecordStep() {
+        long timeSinceLastStep =_sensorData.getTimestamp(0) - _lastStepTimestamp;
+        if (timeSinceLastStep < _minStepIntervalNS)
+            return;
+
+        _steps++;
+        _lastStepTimestamp = _sensorData.getTimestamp(0);
+    }
+
+    private void checkForStep() {
+        // take the mean over the last 2 seconds
+        long tsMax = _sensorData.getTimestamp(0);
+        double sum = 0.0;
+        int count = 0;
+        int max = _sensorData.size();
+        for (int i = 0; i < max; i++) {
+            long ts = _sensorData.getTimestamp(i);
+            if (ts == 0)
+                return; // not enough data
+
+            if ((tsMax - ts) > _stepComparisonIntervalNS)
+                break;
+
+            double d = _sensorData.getData(i);
+            sum += d;
+            count++;
+        }
+
+        double mean = sum / count;
+        if (_sensorData.getData(0) > mean * _stepDetectionThreshold)
+            tryRecordStep();
     }
 }

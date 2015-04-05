@@ -20,7 +20,7 @@ public class MySensorListener implements SensorEventListener
         if (sensors.size() == 0)
             return;
         Sensor sensor = sensors.get(0);
-        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI);
     }
 
     public void unregister(SensorManager sensorManager) {
