@@ -20,7 +20,11 @@ public class MySensorListener implements SensorEventListener
         if (sensors.size() == 0)
             return;
         Sensor sensor = sensors.get(0);
-        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    public void unregister(SensorManager sensorManager) {
+        sensorManager.unregisterListener(this);
     }
 
     private double computeMagnitude(float[] values) {
@@ -34,7 +38,8 @@ public class MySensorListener implements SensorEventListener
     @Override
     public void onSensorChanged(SensorEvent event) {
         double d = computeMagnitude(event.values);
-        _mainActivity.plotSensorData(d, event.timestamp);
+        _mainActivity.onReceiveSensorData(d, event.timestamp);
+        _mainActivity.updatePlot();
     }
 
     @Override
