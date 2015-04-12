@@ -6,6 +6,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import java.util.*;
 
+// Listens for accelerometer data and passes it on to the main activity
 public class MySensorListener implements SensorEventListener
 {
     private MainActivity _mainActivity;
@@ -20,25 +21,25 @@ public class MySensorListener implements SensorEventListener
         if (sensors.size() == 0)
             return;
         Sensor sensor = sensors.get(0);
-        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI);
+        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME);
     }
 
     public void unregister(SensorManager sensorManager) {
         sensorManager.unregisterListener(this);
     }
 
-    private double computeMagnitude(float[] values) {
+    private float computeMagnitude(float[] values) {
         float sum = 0.0f;
         for (float f : values) {
             sum += f * f;
         }
-        return Math.sqrt(sum);
+        return (float)Math.sqrt(sum);
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        double d = computeMagnitude(event.values);
-        _mainActivity.onReceiveSensorData(d, event.timestamp);
+        float f = computeMagnitude(event.values);
+        _mainActivity.onReceiveSensorData(f, event.timestamp);
         _mainActivity.updatePlot();
     }
 

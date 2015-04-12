@@ -15,15 +15,14 @@ public class MainActivity extends ActionBarActivity {
 
     private long _steps;
     private long _lastStepTimestamp;
-    private long _updates;
-    private long _initialTS;
+    private long _updates; // number of sensor updates
+    private TimeSeriesCircularBuffer _sensorData;
+    private boolean _wasPositiveAccel; // used for zero-crossing step detection
+
     private TextView _stepCount;
     private TextView _updateCount;
-    private TextView _dbgText;
+    private TextView _currentAccel;
     private SurfaceView _plot;
-    private TimeSeriesCircularBuffer _sensorData;
-
-    private Paint _paintGreenLine;
     private Paint _paintData;
 
     @Override
@@ -36,16 +35,14 @@ public class MainActivity extends ActionBarActivity {
         _steps = 0;
         _lastStepTimestamp = 0;
         _updates = 0;
-        _initialTS = 0;
-        _sensorData = new TimeSeriesCircularBuffer(200);
+        _sensorData = new TimeSeriesCircularBuffer(1000);
+        _wasPositiveAccel = false;
 
         _stepCount = (TextView)findViewById(R.id.stepCount);
         _updateCount = (TextView)findViewById(R.id.updateCount);
-        _dbgText = (TextView)findViewById(R.id.dbgText);
+        _currentAccel = (TextView)findViewById(R.id.dbgText);
         _plot = (SurfaceView)findViewById(R.id.plot);
 
-        _paintGreenLine = new Paint();
-        _paintGreenLine.setARGB(255, 32, 255, 32);
         _paintData = new Paint();
         _paintData.setARGB(255, 255, 255, 255);
     }
@@ -56,8 +53,10 @@ public class MainActivity extends ActionBarActivity {
         _listener.unregister((SensorManager) getSystemService(SENSOR_SERVICE));
         _listener = null;
         _stepCount = null;
-        _dbgText = null;
+        _updateCount = null;
+        _currentAccel = null;
         _plot = null;
+        _paintData = null;
     }
 
     @Override
@@ -82,33 +81,32 @@ public class MainActivity extends ActionBarActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private static final float _displayCycleTime = 3.0f; // 3 seconds
-    private static final long _displayCycleTimeNS = (long)(_displayCycleTime * 1000 * 1000 * 1000);
+    // the plot shows the last 3 seconds of data
+    private static final long _displayCycleTimeNS = (long)(3.0 * 1000 * 1000 * 1000);
 
-    // Given a timestamp, returns the position on the rotating display that we should draw at
-    private float xPosFromTimestamp(long ts) {
-        long elapsed = ts - _initialTS;
-        elapsed = elapsed % _displayCycleTimeNS;
-        float xPos = (float)elapsed / _displayCycleTimeNS;
-        return _plot.getWidth() * xPos;
-    }
-
-    public void onReceiveSensorData(double d, long timestamp) {
+    public void onReceiveSensorData(float accel, long timestamp) {
         _updates++;
-        if (_initialTS == 0)
-            _initialTS = timestamp;
 
-        _sensorData.add(timestamp, d);
+        _sensorData.add(timestamp, accel);
         checkForStep();
 
+        // Update UI elements
         _stepCount.setText(Long.toString(_steps));
         _updateCount.setText(Long.toString(_updates));
-        _dbgText.setText(Double.toString(d));
+        _currentAccel.setText(Float.toString(accel));
     }
 
     private static final double _plotYMin = 0.0f;
     private static final double _plotYMax = 20.0f;
 
+    // Given a timestamp, returns the position on the X axis to draw at
+    private float xPosFromTimestamp(long ts, long tsLatest) {
+        long elapsed = tsLatest - ts;
+        float xPos = (float)elapsed / _displayCycleTimeNS;
+        return _plot.getWidth() * xPos;
+    }
+
+    // Given a data point, returns the position on the Y axis to draw at
     private double yPosFromData(double d) {
         if (d < _plotYMin || d > _plotYMax)
             return 0.0f;
@@ -135,54 +133,61 @@ public class MainActivity extends ActionBarActivity {
             if (ts == 0 || ts < (tsMax - _displayCycleTimeNS))
                 break;
 
-            float xPos = xPosFromTimestamp(ts);
+            float xPos = xPosFromTimestamp(ts, tsMax);
             float yPos = (float)yPosFromData(d);
 
             c.drawCircle(xPos, yPos, 2.0f, _paintData);
         }
 
-        // Draw the green line that shows the current position
-        float x = xPosFromTimestamp(tsMax);
-        c.drawLine(x, 0, x, c.getHeight(), _paintGreenLine);
-
         sh.unlockCanvasAndPost(c);
     }
 
-    private static final long _minStepIntervalNS = 300 * 1000 * 1000; // 200 msec
-    private static final long _stepComparisonIntervalNS = 2 * 1000 * 1000 * 1000;
-    private static final double _stepDetectionThreshold = 1.1; // 10% more than the mean over the interval
+    // Compute the mean of the data over the last (interval) ns
+    private float computeMeanOverInterval(long interval) {
+        int size = _sensorData.size();
+        long tsLatest = _sensorData.getTimestamp(0);
 
-    // Records a step, if it's been long enough since the last one (to avoid jitter)
-    private void tryRecordStep() {
-        long timeSinceLastStep =_sensorData.getTimestamp(0) - _lastStepTimestamp;
-        if (timeSinceLastStep < _minStepIntervalNS)
-            return;
+        if (size == 0)
+            throw new Error(); // let's just not do this
 
-        _steps++;
-        _lastStepTimestamp = _sensorData.getTimestamp(0);
-    }
-
-    private void checkForStep() {
-        // take the mean over the last 2 seconds
-        long tsMax = _sensorData.getTimestamp(0);
-        double sum = 0.0;
-        int count = 0;
-        int max = _sensorData.size();
-        for (int i = 0; i < max; i++) {
+        int i = 0;
+        float sum = 0.0f;
+        while (i < size) {
             long ts = _sensorData.getTimestamp(i);
-            if (ts == 0)
-                return; // not enough data
-
-            if ((tsMax - ts) > _stepComparisonIntervalNS)
+            if ((tsLatest - ts) > interval)
                 break;
 
-            double d = _sensorData.getData(i);
-            sum += d;
-            count++;
+            sum += _sensorData.getData(i);
+            i++;
         }
 
-        double mean = sum / count;
-        if (_sensorData.getData(0) > mean * _stepDetectionThreshold)
-            tryRecordStep();
+        return sum / i;
+    }
+
+    private static final long _zeroAccelIntervalNS = 5 * 1000 * 1000 * 1000; // use the mean over the last 5 seconds as "zero"
+    private static final long _currentAccelIntervalNS = 50 * 1000 * 1000; // use the mean of the last 50 ms of data
+    private static final long _minStepInterval = 200 * 1000 * 1000; // count a step at most every 200 ms
+    private static final float _accelThreshold = 1.0f; // the current acceleration must be this far above the mean to count a step
+
+    // Use a simple zero-crossing algorithm to detect steps
+    private void checkForStep() {
+        long tsNewest = _sensorData.getTimestamp(0);
+        long tsOldest = _sensorData.getTimestamp(_sensorData.size() - 1);
+        if (tsNewest - tsOldest < _zeroAccelIntervalNS) {
+            if (_sensorData.size() == 1000)
+                throw new Error(); // this would mean that our buffer is too small, and can't hold enough data to compute the mean
+            return; // not enough data yet
+        }
+
+        float zeroAccel = computeMeanOverInterval(_zeroAccelIntervalNS);
+        float currentAccel = computeMeanOverInterval(_currentAccelIntervalNS);
+        float delta = currentAccel - zeroAccel; // acceleration relative to mean
+        if (delta > _accelThreshold && !_wasPositiveAccel && (tsNewest - _lastStepTimestamp) > _minStepInterval) {
+            // record a step!
+            _steps++;
+            _lastStepTimestamp = tsNewest;
+        }
+
+        _wasPositiveAccel = delta > _accelThreshold;
     }
 }
