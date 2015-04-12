@@ -1,6 +1,7 @@
 Ravi Pinjala
 Ubiquitous Computing
 Assignment 1
+https://github.com/rxpinjala/cse590p-ubicomp-hw1
 
 For this assignment, I've implemented a simple step counter app. The step counting is implented using a basic zero-crossing strategy, where we count a step every time the acceleration goes further than a hardcoded threshold above the mean. The accelerometer data is stored in a circular buffer (implemented in TimeSeriesCircularBuffer.java). The step detection should work in any orientation, since I'm basing everything off the magnitude of the acceleration vector, rather than any one component. 
 
